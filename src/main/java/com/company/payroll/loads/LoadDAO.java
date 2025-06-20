@@ -219,6 +219,28 @@ public class LoadDAO {
         return list;
     }
 
+    /**
+     * Returns all loads for a driver where the delivery date is within the range (inclusive).
+     * Only loads with non-null deliveryDate are returned.
+     */
+    public List<Load> getByDriverAndDateRange(int driverId, LocalDate start, LocalDate end) {
+        List<Load> list = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String sql = "SELECT * FROM loads WHERE driver_id = ? AND delivery_date IS NOT NULL AND delivery_date >= ? AND delivery_date <= ?";
+            PreparedStatement ps = conn.prepareStatement(sql);
+            ps.setInt(1, driverId);
+            ps.setDate(2, Date.valueOf(start));
+            ps.setDate(3, Date.valueOf(end));
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                list.add(extractLoad(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
     // Utility: extract a Load from the current ResultSet row
     private Load extractLoad(ResultSet rs) throws SQLException {
         int id = rs.getInt("id");

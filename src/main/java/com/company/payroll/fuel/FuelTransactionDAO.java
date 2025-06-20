@@ -177,6 +177,56 @@ public class FuelTransactionDAO {
         }
     }
 
+    /**
+     * Get all fuel transactions for a given driver name and/or truck unit and date range (inclusive).
+     * If driverName or truckUnit is null, match all.
+     */
+    public List<FuelTransaction> getByDriverAndDateRange(String driverName, String truckUnit, String startDate, String endDate) {
+        List<FuelTransaction> list = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM fuel_transactions WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        if (driverName != null && !driverName.isBlank()) {
+            sql.append(" AND driver_name = ?");
+            params.add(driverName);
+        }
+        if (truckUnit != null && !truckUnit.isBlank()) {
+            sql.append(" AND unit = ?");
+            params.add(truckUnit);
+        }
+        if (startDate != null) {
+            sql.append(" AND tran_date >= ?");
+            params.add(startDate);
+        }
+        if (endDate != null) {
+            sql.append(" AND tran_date <= ?");
+            params.add(endDate);
+        }
+        sql.append(" ORDER BY tran_date ASC");
+
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            PreparedStatement ps = conn.prepareStatement(sql.toString());
+            for (int i = 0; i < params.size(); ++i)
+                ps.setObject(i + 1, params.get(i));
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                FuelTransaction t = mapRow(rs);
+                list.add(t);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    /**
+     * Overload for getByDriverAndDateRange with LocalDate, returns all transactions in date range.
+     */
+    public List<FuelTransaction> getByDriverAndDateRange(String driverName, String truckUnit, java.time.LocalDate start, java.time.LocalDate end) {
+        String startDate = start != null ? start.toString() : null;
+        String endDate = end != null ? end.toString() : null;
+        return getByDriverAndDateRange(driverName, truckUnit, startDate, endDate);
+    }
+
     private FuelTransaction mapRow(ResultSet rs) throws SQLException {
         return new FuelTransaction(
                 rs.getInt("id"),

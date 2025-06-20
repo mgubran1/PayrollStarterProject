@@ -72,6 +72,23 @@ public class Load {
     public LocalDate getDeliveryDate() { return deliveryDate; }
     public void setDeliveryDate(LocalDate deliveryDate) { this.deliveryDate = deliveryDate; }
 
+    // ---- Needed for PayrollTab/PayrollCalculator ----
+
+    /**
+     * Returns the date of delivery for payroll calculations.
+     * If null, treat as not delivered.
+     */
+    public LocalDate getLoadDate() {
+        return deliveryDate;
+    }
+
+    /**
+     * Returns the amount to use in payroll calculations.
+     */
+    public double getAmount() {
+        return getGrossAmount();
+    }
+
     @Override
     public String toString() {
         return loadNumber + " - " + customer + " (" + status + ")";
