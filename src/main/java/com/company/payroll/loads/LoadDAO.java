@@ -5,7 +5,8 @@ import com.company.payroll.employees.EmployeeDAO;
 
 import java.sql.*;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.List;
+import java.util.ArrayList;
 
 public class LoadDAO {
 
@@ -13,6 +14,14 @@ public class LoadDAO {
     private final EmployeeDAO employeeDAO = new EmployeeDAO();
 
     public LoadDAO() {
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            // If delivery_date doesn't exist, add it (for upgrades)
+            conn.createStatement().execute(
+                "ALTER TABLE loads ADD COLUMN delivery_date DATE"
+            );
+        } catch (SQLException ignore) {
+            // Ignore error if column already exists
+        }
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             String sql = """
                 CREATE TABLE IF NOT EXISTS loads (
@@ -25,8 +34,7 @@ public class LoadDAO {
                     status TEXT,
                     gross_amount REAL,
                     notes TEXT,
-                    -- Optional: uncomment below if you want to track date fields
-                    -- created_date TEXT,
+                    delivery_date DATE,
                     FOREIGN KEY(driver_id) REFERENCES employees(id)
                 );
             """;
@@ -51,7 +59,7 @@ public class LoadDAO {
     }
 
     public int add(Load load) {
-        String sql = "INSERT INTO loads (load_number, customer, pick_up_location, drop_location, driver_id, status, gross_amount, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO loads (load_number, customer, pick_up_location, drop_location, driver_id, status, gross_amount, notes, delivery_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, load.getLoadNumber());
@@ -62,6 +70,10 @@ public class LoadDAO {
             ps.setString(6, load.getStatus().name());
             ps.setDouble(7, load.getGrossAmount());
             ps.setString(8, load.getNotes());
+            if (load.getDeliveryDate() != null)
+                ps.setDate(9, java.sql.Date.valueOf(load.getDeliveryDate()));
+            else
+                ps.setNull(9, Types.DATE);
             ps.executeUpdate();
             ResultSet keys = ps.getGeneratedKeys();
             if (keys.next()) return keys.getInt(1);
@@ -75,7 +87,7 @@ public class LoadDAO {
     }
 
     public void update(Load load) {
-        String sql = "UPDATE loads SET load_number=?, customer=?, pick_up_location=?, drop_location=?, driver_id=?, status=?, gross_amount=?, notes=? WHERE id=?";
+        String sql = "UPDATE loads SET load_number=?, customer=?, pick_up_location=?, drop_location=?, driver_id=?, status=?, gross_amount=?, notes=?, delivery_date=? WHERE id=?";
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setString(1, load.getLoadNumber());
@@ -86,7 +98,11 @@ public class LoadDAO {
             ps.setString(6, load.getStatus().name());
             ps.setDouble(7, load.getGrossAmount());
             ps.setString(8, load.getNotes());
-            ps.setInt(9, load.getId());
+            if (load.getDeliveryDate() != null)
+                ps.setDate(9, java.sql.Date.valueOf(load.getDeliveryDate()));
+            else
+                ps.setNull(9, Types.DATE);
+            ps.setInt(10, load.getId());
             ps.executeUpdate();
         } catch (SQLException e) {
             if (e.getMessage() != null && e.getMessage().contains("UNIQUE constraint failed: loads.load_number")) {
@@ -120,7 +136,6 @@ public class LoadDAO {
         return null;
     }
 
-    // --- New: Get all loads by status
     public List<Load> getByStatus(Load.Status status) {
         List<Load> list = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
@@ -137,7 +152,6 @@ public class LoadDAO {
         return list;
     }
 
-    // --- New: Get all loads by driver (employee) id
     public List<Load> getByDriver(int driverId) {
         List<Load> list = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
@@ -154,7 +168,6 @@ public class LoadDAO {
         return list;
     }
 
-    // --- New: Get all loads between two gross amounts (or by dates if you add date col)
     public List<Load> getByGrossAmountRange(double min, double max) {
         List<Load> list = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
@@ -172,7 +185,6 @@ public class LoadDAO {
         return list;
     }
 
-    // --- New: Advanced search (multi-field flexible)
     public List<Load> search(String loadNum, String customer, Integer driverId, Load.Status status) {
         List<Load> list = new ArrayList<>();
         StringBuilder sql = new StringBuilder("SELECT * FROM loads WHERE 1=1");
@@ -207,24 +219,6 @@ public class LoadDAO {
         return list;
     }
 
-    // --- New: (optional) Date range filter if you add a date field to your schema
-    // public List<Load> getByDateRange(LocalDate from, LocalDate to) {
-    //     List<Load> list = new ArrayList<>();
-    //     try (Connection conn = DriverManager.getConnection(DB_URL)) {
-    //         String sql = "SELECT * FROM loads WHERE created_date >= ? AND created_date <= ?";
-    //         PreparedStatement ps = conn.prepareStatement(sql);
-    //         ps.setString(1, from.toString());
-    //         ps.setString(2, to.toString());
-    //         ResultSet rs = ps.executeQuery();
-    //         while (rs.next()) {
-    //             list.add(extractLoad(rs));
-    //         }
-    //     } catch (SQLException e) {
-    //         e.printStackTrace();
-    //     }
-    //     return list;
-    // }
-
     // Utility: extract a Load from the current ResultSet row
     private Load extractLoad(ResultSet rs) throws SQLException {
         int id = rs.getInt("id");
@@ -237,6 +231,9 @@ public class LoadDAO {
         Load.Status status = Load.Status.valueOf(rs.getString("status"));
         double gross = rs.getDouble("gross_amount");
         String notes = rs.getString("notes");
-        return new Load(id, loadNumber, customer, pickUp, drop, driver, status, gross, notes);
+        LocalDate deliveryDate = null;
+        java.sql.Date sqlDate = rs.getDate("delivery_date");
+        if (sqlDate != null) deliveryDate = sqlDate.toLocalDate();
+        return new Load(id, loadNumber, customer, pickUp, drop, driver, status, gross, notes, deliveryDate);
     }
 }

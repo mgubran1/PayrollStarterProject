@@ -2,6 +2,7 @@ package com.company.payroll.loads;
 
 import com.company.payroll.employees.Employee;
 import com.company.payroll.employees.EmployeeDAO;
+import com.company.payroll.employees.EmployeesTab;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.*;
@@ -10,7 +11,6 @@ import javafx.geometry.*;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.input.KeyCode;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 
@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-public class LoadsTab extends BorderPane {
+public class LoadsTab extends BorderPane implements EmployeesTab.EmployeeDataChangeListener {
 
     private final LoadDAO loadDAO = new LoadDAO();
     private final EmployeeDAO employeeDAO = new EmployeeDAO();
@@ -33,28 +33,21 @@ public class LoadsTab extends BorderPane {
         BOOKED, IN_TRANSIT, DELIVERED, PAID, CANCELLED, ALL, SEARCH
     }
 
-    public LoadsTab() {
-        // Load all data
+    public LoadsTab(EmployeesTab employeesTab) {
+        employeesTab.addEmployeeDataChangeListener(this);
         reloadAll();
 
-        // Create main tab pane for each load status
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
 
-        // Main status tabs
         statusTabs.add(makeStatusTab("Booked", Load.Status.BOOKED, LoadTabStatus.BOOKED));
         statusTabs.add(makeStatusTab("In-Transit", Load.Status.IN_TRANSIT, LoadTabStatus.IN_TRANSIT));
         statusTabs.add(makeStatusTab("Delivered", Load.Status.DELIVERED, LoadTabStatus.DELIVERED));
         statusTabs.add(makeStatusTab("Paid", Load.Status.PAID, LoadTabStatus.PAID));
         statusTabs.add(makeStatusTab("Cancelled", Load.Status.CANCELLED, LoadTabStatus.CANCELLED));
-
-        // "All" tab (shows all loads)
         statusTabs.add(makeStatusTab("All", null, LoadTabStatus.ALL));
-
-        // "Advanced Search" tab
         statusTabs.add(makeSearchTab());
 
-        // Add tabs to TabPane
         for (StatusTab sTab : statusTabs) {
             tabs.getTabs().add(sTab.tab);
         }
@@ -62,22 +55,17 @@ public class LoadsTab extends BorderPane {
         setCenter(tabs);
     }
 
-    // Helper class for holding tab and table
     private static class StatusTab {
         Tab tab;
         TableView<Load> table;
         FilteredList<Load> filteredList;
     }
 
-    // Main per-status tab
     private StatusTab makeStatusTab(String title, Load.Status filterStatus, LoadTabStatus loadTabStatus) {
         StatusTab statusTab = new StatusTab();
-
-        // Filtered list for this tab
         statusTab.filteredList = new FilteredList<>(allLoads, l -> filterStatus == null || l.getStatus() == filterStatus);
         TableView<Load> table = makeTableView(statusTab.filteredList);
 
-        // Export, Add, Edit, Delete, Bulk Status Update, Refresh
         Button addBtn = new Button("Add");
         Button editBtn = new Button("Edit");
         Button deleteBtn = new Button("Delete");
@@ -89,7 +77,6 @@ public class LoadsTab extends BorderPane {
         buttonBox.setAlignment(Pos.CENTER_LEFT);
         buttonBox.setPadding(new Insets(10, 10, 5, 10));
 
-        // Add/Edit/Delete/Refresh actions
         addBtn.setOnAction(e -> showLoadDialog(null, true));
         editBtn.setOnAction(e -> {
             Load selected = table.getSelectionModel().getSelectedItem();
@@ -113,7 +100,6 @@ public class LoadsTab extends BorderPane {
         exportBtn.setOnAction(e -> exportCSV(table));
         refreshBtn.setOnAction(e -> reloadAll());
 
-        // Bulk status update
         bulkStatusBtn.setOnAction(e -> {
             List<Load> selected = new ArrayList<>(table.getSelectionModel().getSelectedItems());
             if (selected.isEmpty()) return;
@@ -130,7 +116,6 @@ public class LoadsTab extends BorderPane {
             });
         });
 
-        // Double-click for edit
         table.setRowFactory(tv -> {
             TableRow<Load> row = new TableRow<>();
             row.setOnMouseClicked(event -> {
@@ -141,7 +126,6 @@ public class LoadsTab extends BorderPane {
             return row;
         });
 
-        // Multi-row selection for bulk update
         table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
         VBox vbox = new VBox(table, buttonBox);
@@ -150,11 +134,9 @@ public class LoadsTab extends BorderPane {
         return statusTab;
     }
 
-    // Search/Advanced Filter tab
     private StatusTab makeSearchTab() {
         StatusTab sTab = new StatusTab();
 
-        // Controls
         TextField loadNumField = new TextField();
         loadNumField.setPromptText("Load #");
         TextField customerField = new TextField();
@@ -170,10 +152,7 @@ public class LoadsTab extends BorderPane {
         Button searchBtn = new Button("Search");
         Button exportBtn = new Button("Export CSV");
 
-        // Always refresh driver list
         driverBox.setItems(allDrivers);
-
-        // --- FIX: Show driver names in ComboBox
         driverBox.setCellFactory(cb -> new ListCell<Employee>() {
             @Override
             protected void updateItem(Employee e, boolean empty) {
@@ -193,7 +172,6 @@ public class LoadsTab extends BorderPane {
         filters.setAlignment(Pos.CENTER_LEFT);
         filters.setPadding(new Insets(10));
 
-        // Filtered list for advanced search
         FilteredList<Load> searchFiltered = new FilteredList<>(allLoads, l -> false);
         TableView<Load> table = makeTableView(searchFiltered);
 
@@ -216,7 +194,7 @@ public class LoadsTab extends BorderPane {
         return sTab;
     }
 
-    // TableView for loads, with color-coded status
+    // TableView for loads, with color-coded status, and delivery date column
     private TableView<Load> makeTableView(ObservableList<Load> list) {
         TableView<Load> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
@@ -260,11 +238,15 @@ public class LoadsTab extends BorderPane {
         TableColumn<Load, String> notesCol = new TableColumn<>("Notes");
         notesCol.setCellValueFactory(e -> new SimpleStringProperty(e.getValue().getNotes()));
 
-        table.getColumns().addAll(loadNumCol, customerCol, pickUpCol, dropCol, driverCol, statusCol, grossCol, notesCol);
+        TableColumn<Load, String> deliveryDateCol = new TableColumn<>("Delivery Date");
+        deliveryDateCol.setCellValueFactory(e -> new SimpleStringProperty(
+                e.getValue().getDeliveryDate() != null ? e.getValue().getDeliveryDate().toString() : ""
+        ));
+
+        table.getColumns().addAll(loadNumCol, customerCol, pickUpCol, dropCol, driverCol, statusCol, grossCol, notesCol, deliveryDateCol);
         return table;
     }
 
-    // Color for status
     private String getStatusColor(String s) {
         switch (s) {
             case "BOOKED":      return "#b6d4fe";
@@ -276,13 +258,12 @@ public class LoadsTab extends BorderPane {
         }
     }
 
-    // Show dialog for Add/Edit
+    // Show dialog for Add/Edit, supporting delivery date
     private void showLoadDialog(Load load, boolean isAdd) {
         Dialog<Load> dialog = new Dialog<>();
         dialog.setTitle(isAdd ? "Add Load" : "Edit Load");
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
 
-        // Fields
         TextField loadNumField = new TextField();
         TextField customerField = new TextField();
         TextField pickUpField = new TextField();
@@ -291,12 +272,11 @@ public class LoadsTab extends BorderPane {
         ComboBox<Load.Status> statusBox = new ComboBox<>(FXCollections.observableArrayList(Load.Status.values()));
         TextField grossField = new TextField();
         TextArea notesField = new TextArea();
+        DatePicker deliveryDatePicker = new DatePicker();
         notesField.setPrefRowCount(2);
 
-        // Always fetch latest employees for driver selection
         driverBox.setItems(allDrivers);
 
-        // --- FIX: Show driver names in ComboBox
         driverBox.setCellFactory(cb -> new ListCell<Employee>() {
             @Override
             protected void updateItem(Employee e, boolean empty) {
@@ -317,10 +297,22 @@ public class LoadsTab extends BorderPane {
             customerField.setText(load.getCustomer());
             pickUpField.setText(load.getPickUpLocation());
             dropField.setText(load.getDropLocation());
-            driverBox.setValue(load.getDriver());
+            Employee loadedDriver = load.getDriver();
+            if (loadedDriver != null) {
+                Employee matching = allDrivers.stream()
+                        .filter(emp -> emp.getId() == loadedDriver.getId())
+                        .findFirst()
+                        .orElse(null);
+                driverBox.setValue(matching);
+            } else {
+                driverBox.setValue(null);
+            }
             statusBox.setValue(load.getStatus());
             grossField.setText(String.valueOf(load.getGrossAmount()));
             notesField.setText(load.getNotes());
+            if (load.getDeliveryDate() != null) {
+                deliveryDatePicker.setValue(load.getDeliveryDate());
+            }
         }
 
         Label errorLabel = new Label();
@@ -340,6 +332,7 @@ public class LoadsTab extends BorderPane {
         grid.add(new Label("Status:"), 0, r);       grid.add(statusBox, 1, r++);
         grid.add(new Label("Gross Amount:"), 0, r); grid.add(grossField, 1, r++);
         grid.add(new Label("Notes:"), 0, r);        grid.add(notesField, 1, r++);
+        grid.add(new Label("Delivery Date:"), 0, r);grid.add(deliveryDatePicker, 1, r++);
         grid.add(errorLabel, 1, r++);
 
         Node okBtn = dialog.getDialogPane().lookupButton(ButtonType.OK);
@@ -349,16 +342,27 @@ public class LoadsTab extends BorderPane {
             boolean grossValid = grossField.getText().trim().isEmpty() || isDouble(grossField.getText());
             boolean duplicate = checkDuplicateLoadNumber(loadNumField.getText().trim(),
                     isAdd ? -1 : (load != null ? load.getId() : -1));
+            boolean deliveryRequired = false;
+            Load.Status statusValue = statusBox.getValue();
+            if (statusValue == Load.Status.DELIVERED || statusValue == Load.Status.PAID) {
+                deliveryRequired = true;
+            }
+            boolean deliveryValid = !deliveryRequired || deliveryDatePicker.getValue() != null;
             if (duplicate && loadNumValid) {
                 errorLabel.setText("Load # already exists.");
+                errorLabel.setVisible(true);
+            } else if (!deliveryValid) {
+                errorLabel.setText("Delivery date required for DELIVERED or PAID status.");
                 errorLabel.setVisible(true);
             } else {
                 errorLabel.setVisible(false);
             }
-            okBtn.setDisable(!(loadNumValid && grossValid) || duplicate);
+            okBtn.setDisable(!(loadNumValid && grossValid && deliveryValid) || duplicate);
         };
         loadNumField.textProperty().addListener((obs, oldV, newV) -> validate.run());
         grossField.textProperty().addListener((obs, oldV, newV) -> validate.run());
+        statusBox.valueProperty().addListener((obs, oldV, newV) -> validate.run());
+        deliveryDatePicker.valueProperty().addListener((obs, oldV, newV) -> validate.run());
         validate.run();
 
         dialog.getDialogPane().setContent(grid);
@@ -374,9 +378,10 @@ public class LoadsTab extends BorderPane {
                     Load.Status status = statusBox.getValue() != null ? statusBox.getValue() : Load.Status.BOOKED;
                     double gross = grossField.getText().isEmpty() ? 0 : Double.parseDouble(grossField.getText());
                     String notes = notesField.getText().trim();
+                    LocalDate deliveryDate = deliveryDatePicker.getValue();
 
                     if (isAdd) {
-                        Load newLoad = new Load(0, loadNum, customer, pickUp, drop, driver, status, gross, notes);
+                        Load newLoad = new Load(0, loadNum, customer, pickUp, drop, driver, status, gross, notes, deliveryDate);
                         int newId = loadDAO.add(newLoad);
                         newLoad.setId(newId);
                         return newLoad;
@@ -389,6 +394,7 @@ public class LoadsTab extends BorderPane {
                         load.setStatus(status);
                         load.setGrossAmount(gross);
                         load.setNotes(notes);
+                        load.setDeliveryDate(deliveryDate);
                         loadDAO.update(load);
                         return load;
                     }
@@ -403,7 +409,6 @@ public class LoadsTab extends BorderPane {
         dialog.showAndWait().ifPresent(result -> reloadAll());
     }
 
-    // Duplicate Load # check (case-insensitive, trims, ignores current row)
     private boolean checkDuplicateLoadNumber(String loadNum, int excludeId) {
         String norm = loadNum.trim().toLowerCase(Locale.ROOT);
         for (Load l : allLoads) {
@@ -415,12 +420,9 @@ public class LoadsTab extends BorderPane {
         return false;
     }
 
-    // Reload all Loads and Drivers (called after any add/edit/delete/refresh)
     private void reloadAll() {
         allLoads.setAll(loadDAO.getAll());
         allDrivers.setAll(employeeDAO.getAll());
-        // Refresh driver ComboBoxes in search and add/edit dialogs will see the latest
-        // Refresh all status tab tables
         for (StatusTab tab : statusTabs) {
             if (tab.filteredList != null)
                 tab.filteredList.setPredicate(tab.filteredList.getPredicate());
@@ -432,7 +434,6 @@ public class LoadsTab extends BorderPane {
         catch (Exception e) { return false; }
     }
 
-    // Advanced search filter
     private Predicate<Load> makeSearchPredicate(
             String loadNum, String customer, Employee driver, Load.Status status, LocalDate after, LocalDate before) {
         String normLoadNum = loadNum == null ? "" : loadNum.trim().toLowerCase();
@@ -447,12 +448,14 @@ public class LoadsTab extends BorderPane {
                 match &= l.getDriver() != null && l.getDriver().getId() == driver.getId();
             if (status != null)
                 match &= l.getStatus() == status;
-            // Optionally, add created/delivered date if you track those
+            if (after != null)
+                match &= l.getDeliveryDate() != null && !l.getDeliveryDate().isBefore(after);
+            if (before != null)
+                match &= l.getDeliveryDate() != null && !l.getDeliveryDate().isAfter(before);
             return match;
         };
     }
 
-    // Export table to CSV
     private void exportCSV(TableView<Load> table) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Export Loads to CSV");
@@ -460,10 +463,8 @@ public class LoadsTab extends BorderPane {
         File file = fileChooser.showSaveDialog(table.getScene().getWindow());
         if (file == null) return;
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
-            // Header
             String header = table.getColumns().stream().map(TableColumn::getText).collect(Collectors.joining(","));
             bw.write(header); bw.newLine();
-            // Rows
             for (Load l : table.getItems()) {
                 String row = String.join(",",
                         safe(l.getLoadNumber()),
@@ -473,7 +474,8 @@ public class LoadsTab extends BorderPane {
                         safe(l.getDriver() != null ? l.getDriver().getName() : ""),
                         safe(l.getStatus().toString()),
                         String.valueOf(l.getGrossAmount()),
-                        safe(l.getNotes())
+                        safe(l.getNotes()),
+                        safe(l.getDeliveryDate() != null ? l.getDeliveryDate().toString() : "")
                 );
                 bw.write(row); bw.newLine();
             }
@@ -485,5 +487,14 @@ public class LoadsTab extends BorderPane {
     private String safe(String s) {
         if (s == null) return "";
         return s.replace(",", " ");
+    }
+
+    @Override
+    public void onEmployeeDataChanged(List<Employee> currentList) {
+        allDrivers.setAll(currentList);
+        for (StatusTab tab : statusTabs) {
+            if (tab.filteredList != null)
+                tab.filteredList.setPredicate(tab.filteredList.getPredicate());
+        }
     }
 }

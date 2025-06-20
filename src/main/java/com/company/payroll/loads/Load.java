@@ -15,11 +15,13 @@ public class Load {
     private Status status;
     private double grossAmount;
     private String notes;
+    private LocalDate deliveryDate; // <-- NEW FIELD
 
     // Optional: Attachments, Created/Modified date, etc.
 
+    // UPDATED CONSTRUCTOR
     public Load(int id, String loadNumber, String customer, String pickUpLocation, String dropLocation,
-                Employee driver, Status status, double grossAmount, String notes) {
+                Employee driver, Status status, double grossAmount, String notes, LocalDate deliveryDate) {
         this.id = id;
         this.loadNumber = loadNumber;
         this.customer = customer;
@@ -29,6 +31,13 @@ public class Load {
         this.status = status;
         this.grossAmount = grossAmount;
         this.notes = notes;
+        this.deliveryDate = deliveryDate;
+    }
+
+    // Backwards compatible constructor for legacy code
+    public Load(int id, String loadNumber, String customer, String pickUpLocation, String dropLocation,
+                Employee driver, Status status, double grossAmount, String notes) {
+        this(id, loadNumber, customer, pickUpLocation, dropLocation, driver, status, grossAmount, notes, null);
     }
 
     // --- Getters and setters ---
@@ -59,6 +68,9 @@ public class Load {
 
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+
+    public LocalDate getDeliveryDate() { return deliveryDate; }
+    public void setDeliveryDate(LocalDate deliveryDate) { this.deliveryDate = deliveryDate; }
 
     @Override
     public String toString() {

@@ -1,5 +1,8 @@
 package com.company.payroll.employees;
 
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -34,11 +37,43 @@ public class EmployeeDAO {
         }
     }
 
+    /**
+     * Returns all employees from the database, ordered by name.
+     * This is useful for populating combo boxes that need to update live.
+     */
     public List<Employee> getAll() {
         List<Employee> list = new ArrayList<>();
         try (Connection conn = DriverManager.getConnection(DB_URL)) {
-            String sql = "SELECT * FROM employees";
+            String sql = "SELECT * FROM employees ORDER BY name COLLATE NOCASE";
             ResultSet rs = conn.createStatement().executeQuery(sql);
+            while (rs.next()) {
+                list.add(mapRow(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    /**
+     * Returns an ObservableList of all employees for direct use in JavaFX ComboBoxes and Lists.
+     * This ensures the UI can auto-refresh its list of drivers at any time.
+     */
+    public ObservableList<Employee> getObservableAll() {
+        return FXCollections.observableArrayList(getAll());
+    }
+
+    /**
+     * Returns only employees marked as ACTIVE in the database, ordered by name.
+     * Useful for situations where you want to restrict choices to active drivers.
+     */
+    public List<Employee> getActive() {
+        List<Employee> list = new ArrayList<>();
+        try (Connection conn = DriverManager.getConnection(DB_URL)) {
+            String sql = "SELECT * FROM employees WHERE status = ? ORDER BY name COLLATE NOCASE";
+            PreparedStatement ps = conn.prepareStatement(sql);
+            ps.setString(1, Employee.Status.ACTIVE.name());
+            ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 list.add(mapRow(rs));
             }

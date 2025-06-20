@@ -13,11 +13,19 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.util.Callback;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class EmployeesTab extends BorderPane {
     private final ObservableList<Employee> employees = FXCollections.observableArrayList();
     private final EmployeeDAO dao = new EmployeeDAO();
+
+    // Listeners for employee data changed events
+    public interface EmployeeDataChangeListener {
+        void onEmployeeDataChanged(List<Employee> currentList);
+    }
+    private final List<EmployeeDataChangeListener> listeners = new ArrayList<>();
 
     public EmployeesTab() {
         // Load from DB on startup
@@ -141,6 +149,7 @@ public class EmployeesTab extends BorderPane {
                     if (resp == ButtonType.YES) {
                         dao.delete(selected.getId());
                         employees.setAll(dao.getAll());
+                        notifyEmployeeDataChanged();
                     }
                 });
             }
@@ -279,6 +288,8 @@ public class EmployeesTab extends BorderPane {
                         Employee emp = new Employee(0, name, truck, driverPct, companyPct, serviceFee, dob, license, driverType, llc, cdlExp, medExp, status);
                         int newId = dao.add(emp);
                         emp.setId(newId);
+                        employees.setAll(dao.getAll());
+                        notifyEmployeeDataChanged();
                         return emp;
                     } else {
                         employee.setName(name);
@@ -294,6 +305,8 @@ public class EmployeesTab extends BorderPane {
                         employee.setMedicalExpiry(medExp);
                         employee.setStatus(status);
                         dao.update(employee);
+                        employees.setAll(dao.getAll());
+                        notifyEmployeeDataChanged();
                         return employee;
                     }
                 } catch (Exception ex) {
@@ -304,11 +317,20 @@ public class EmployeesTab extends BorderPane {
             return null;
         });
 
-        dialog.showAndWait().ifPresent(result -> {
-            if (result != null) {
-                employees.setAll(dao.getAll());
-            }
-        });
+        dialog.showAndWait();
+    }
+
+    // --- Listener registration for other tabs (e.g. LoadsTab) ---
+    public void addEmployeeDataChangeListener(EmployeeDataChangeListener listener) {
+        listeners.add(listener);
+    }
+    public void removeEmployeeDataChangeListener(EmployeeDataChangeListener listener) {
+        listeners.remove(listener);
+    }
+    private void notifyEmployeeDataChanged() {
+        for (EmployeeDataChangeListener listener : listeners) {
+            listener.onEmployeeDataChanged(new ArrayList<>(employees));
+        }
     }
 
     // Check for duplicate driver name, ignoring case and the current record (for edits)
@@ -353,5 +375,10 @@ public class EmployeesTab extends BorderPane {
                 }
             }
         };
+    }
+
+    // Expose current employees list (unmodifiable copy)
+    public List<Employee> getCurrentEmployees() {
+        return new ArrayList<>(employees);
     }
 }

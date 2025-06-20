@@ -35,15 +35,6 @@
 
     <build>
         <plugins>
-            <!-- JavaFX Maven Plugin -->
-            <plugin>
-                <groupId>org.openjfx</groupId>
-                <artifactId>javafx-maven-plugin</artifactId>
-                <version>0.0.8</version>
-                <configuration>
-                    <mainClass>com.company.payroll.Main</mainClass>
-                </configuration>
-            </plugin>
             <!-- Maven Compiler Plugin (Java 17) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -53,6 +44,15 @@
                     <source>17</source>
                     <target>17</target>
                     <release>17</release>
+                </configuration>
+            </plugin>
+            <!-- JavaFX Maven Plugin -->
+            <plugin>
+                <groupId>org.openjfx</groupId>
+                <artifactId>javafx-maven-plugin</artifactId>
+                <version>0.0.8</version>
+                <configuration>
+                    <mainClass>com.company.payroll.Main</mainClass>
                 </configuration>
             </plugin>
         </plugins>
