@@ -1,9 +1,11 @@
 com\company\payroll\loads\LoadDAO.class
+com\company\payroll\payroll\PayrollActionsPane.class
 com\company\payroll\loads\LoadsTab$1.class
 com\company\payroll\employees\Employee$Status.class
 com\company\payroll\loads\Load.class
 com\company\payroll\loads\LoadsTab$3.class
 com\company\payroll\fuel\FuelImportTab.class
+com\company\payroll\payroll\PayrollSummaryPane.class
 com\company\payroll\feesadvances\FeesAdvancesTab.class
 com\company\payroll\feesadvances\FeesAdvancesTab$CashAdvanceEntry.class
 com\company\payroll\employees\EmployeeDAO.class
@@ -12,6 +14,8 @@ com\company\payroll\Main.class
 com\company\payroll\feesadvances\FeesAdvancesTab$2.class
 com\company\payroll\loads\Load$Status.class
 com\company\payroll\employees\Employee$DriverType.class
+com\company\payroll\payroll\PayrollRow.class
+com\company\payroll\payroll\PayrollTablePane.class
 com\company\payroll\employees\Employee.class
 com\company\payroll\employees\EmployeesTab$EmployeeDataChangeListener.class
 com\company\payroll\loads\LoadsTab$2.class
@@ -19,12 +23,14 @@ com\company\payroll\loads\LoadsTab.class
 com\company\payroll\feesadvances\FeesAdvancesTab$4.class
 com\company\payroll\fuel\FuelTransactionDAO.class
 com\company\payroll\employees\EmployeesTab$1.class
+com\company\payroll\payroll\PayrollSummaryPane$1.class
 com\company\payroll\feesadvances\FeesAdvancesTab$FeeType.class
 com\company\payroll\payroll\PayrollTab.class
 com\company\payroll\feesadvances\FeesAdvancesTab$1.class
 com\company\payroll\loads\LoadsTab$LoadTabStatus.class
 com\company\payroll\loads\LoadsTab$4.class
 com\company\payroll\MainController.class
+com\company\payroll\payroll\PayrollTablePane$1.class
 com\company\payroll\employees\EmployeesTab.class
 com\company\payroll\loads\LoadsTab$StatusTab.class
 com\company\payroll\fuel\FuelTransaction.class
